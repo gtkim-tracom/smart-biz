@@ -37,7 +37,7 @@ public class AuthService {
 	 public CardAuthResponseVo cardAuth(CardAuthRequestVo vo) {
 		 
 		 logger.debug("######################## CardAuthResponseVo_Bicycle_04 ");
-		 logger.debug("CardAuthRequestVo vo ::::::::::: test_git {}" , vo);
+		 logger.debug("CardAuthRequestVo vo ::::::::::: test_git_source_test test {}" , vo);
 		 
 		 /*MessageHeader m = vo.getMessageHeader();
 		 System.out.println(" MessageHeader m::" + m);*/
