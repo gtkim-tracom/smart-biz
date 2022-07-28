@@ -51,7 +51,7 @@ public class PeriodService{
 	 @RPCService(serviceId = "Bicycle_11", serviceName = "주기적인 상태보고 Request", description = "주기적인 상태보고 Request")
 	 public PeriodicStateReportsResponseVo adminMove(PeriodicStateReportsRequestVo vo) {
 		 
-		 logger.debug("######################## Bicycle_11 ");
+		 logger.debug("######################## Bicycle_11 git_modify");
 		 logger.debug("PeriodicStateReportsRequestVo vo :::::::::::{} " , vo);
 		 
 		 
