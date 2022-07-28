@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+	<entry key="appStore.availableLanguages">사용가능한 언어 목록</entry>
+	<entry key="appStore.language.ko">한국어</entry>
+	<entry key="appStore.language.en">영어</entry>
+	
+	<entry key="0000">성공</entry>
+	
+	<entry key="1010">파라메터가 누락 되었습니다.</entry>
+	
+	<entry key="1020">버전 정보를 가져올 수 없습니다.</entry>
+	<entry key="1021">등록 된 패키지 버전이 없습니다.</entry>
+	<entry key="1022">등록 된 리소스 버전이 없습니다.</entry>
+	
+	<entry key="1030">앱 리뷰를 등록하는데 실패 하였습니다.</entry>
+	
+	<entry key="1040">파일을 다운로드 중 오류가 발생하였습니다.</entry>
+	<entry key="1041">이미지 파일이 아닙니다.</entry>
+	
+</properties>

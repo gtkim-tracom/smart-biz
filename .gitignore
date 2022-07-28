@@ -1,0 +1,10 @@
+.project
+.classpath
+pom.xml
+
+#폴더
+/.settings
+/target
+/.svn
+/src/test
+/logs

@@ -1,0 +1,1286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "mybatis-3-mapper.dtd">
+<mapper namespace="org.fincl.miss.service.biz.bicycle.service.BicycleRentMapper"> 
+
+	
+	
+	<update id="lockTableUpdate"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+	
+		UPDATE TB_OPR_RACK 
+		SET 
+			RACK_STUS_CD = #{rockStusCd},
+		<choose>
+			<when test="rockStusCd.equals('RAS_009')">
+			TEMP_RESVE_DTTM = NOW()
+			</when>
+			<otherwise>
+			TEMP_RESVE_DTTM = null
+			</otherwise>
+		</choose>
+		WHERE RACK_ID = #{rockId}
+		
+	</update>
+	
+	
+	<update id="rentTableUpdate"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+	
+		UPDATE TB_SVC_RENT  
+		SET 
+			RENT_YN = 'Y',
+			RENT_BIKE_ID = (SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{bicycleId} ),
+			RENT_DTTM = SYSDATE()
+		WHERE RENT_SEQ = #{rent_seq}
+		
+	</update>
+	
+	<select id="getVoucherInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="java.util.HashMap">
+	
+		SELECT *
+		FROM TB_SVC_VOUCHER
+		WHERE VOUCHER_SEQ = #{voucher_seq}
+		AND PAYMENT_CLS_CD NOT IN ('BIL_008')
+	
+	</select>
+	
+	<select id="getRentVoucherInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="java.util.HashMap">
+	
+		SELECT *
+		FROM TB_SVC_VOUCHER
+		WHERE VOUCHER_SEQ = #{voucher_seq}
+
+	</select>
+	
+	<!-- 프리미엄 요금제 이용권 기간 설정 (일반권 포함)_20160701_JJH_START -->
+	<update id="voucherTableUpdate"		parameterType="java.util.HashMap">
+	
+		UPDATE TB_SVC_VOUCHER
+		SET
+			VOUCHER_STR_DTTM = SYSDATE(),
+			FIRST_STR_DTTM = SYSDATE(),
+			
+			VOUCHER_END_DTTM = (
+				CASE 
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_001', 'BIL_011' ) THEN DATE_ADD(NOW(), INTERVAL + 7 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_002', 'BIL_012' ) THEN DATE_ADD(NOW(), INTERVAL + 30 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_003', 'BIL_013' ) THEN DATE_ADD(NOW(), INTERVAL + 90 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_004', 'BIL_014' ) THEN DATE_ADD(NOW(), INTERVAL + 180 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_005', 'BIL_015' ) THEN DATE_ADD(NOW(), INTERVAL + 365 DAY)
+				WHEN PAYMENT_CLS_CD = 'BIL_021' THEN DATE_ADD(NOW(), INTERVAL +10 MINUTE)
+				ELSE DATE_ADD(NOW(), INTERVAL + 1 DAY)
+				END),
+			FIRST_END_DTTM = (
+				CASE 
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_001', 'BIL_011' ) THEN DATE_ADD(NOW(), INTERVAL + 7 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_002', 'BIL_012' ) THEN DATE_ADD(NOW(), INTERVAL + 30 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_003', 'BIL_013' ) THEN DATE_ADD(NOW(), INTERVAL + 90 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_004', 'BIL_014' ) THEN DATE_ADD(NOW(), INTERVAL + 180 DAY)
+				WHEN PAYMENT_CLS_CD IN ( 'BIL_005', 'BIL_015' ) THEN DATE_ADD(NOW(), INTERVAL + 365 DAY)
+				WHEN PAYMENT_CLS_CD = 'BIL_021' THEN DATE_ADD(NOW(), INTERVAL +10 MINUTE)
+				ELSE DATE_ADD(NOW(), INTERVAL + 1 DAY)
+				END),
+			VOUCHER_USE_YN = 'Y'
+		WHERE VOUCHER_SEQ = #{VOUCHER_SEQ}
+			
+		
+	</update>
+	<!-- 프리미엄 요금제 이용권 기간 설정 (일반권 포함)_20160701_JJH_END -->
+	
+	<update id="rentBikeUpdate"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+		
+		UPDATE TB_OPR_BIKE
+		SET 
+			BIKE_STUS_CD = #{bikeStusCd},
+			CENTER_ID = null
+		WHERE TERMINAL_ID = #{bicycleId}
+	
+	</update>
+	
+	<update id="rentBikeLocationUpdate"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+	
+		UPDATE TB_OPR_BIKE_LOCATE_HIST
+		SET 
+		   LOCATE_END_DTTM = SYSDATE()
+		WHERE BIKE_ID = #{bikeId}
+		   AND LOCATE_END_DTTM = STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+	
+	</update>
+	
+	<delete id="parkingInfoDelete"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+		
+		DELETE FROM TB_OPR_BIKE_PARKING
+		WHERE BIKE_ID = (
+			SELECT  BIKE_ID
+			FROM TB_OPR_BIKE
+			WHERE TERMINAL_ID = #{bicycleId}
+		)
+		
+	</delete>
+	
+	<insert id="rentTableInsert"		parameterType="org.fincl.miss.service.biz.bicycle.vo.BikeRentInfoVo">
+		INSERT INTO TB_SVC_RENT
+		(USR_SEQ, VOUCHER_SEQ, RENT_STATION_ID, RENT_RACK_ID, RENT_BIKE_ID, RENT_CLS_CD, RENT_YN, RENT_DTTM, RENT_MTH_CD, TERMINAL_CARD_REG_YN)
+		VALUES
+		(#{usr_seq}, #{voucher_seq}, #{rent_station_id}, #{rent_rack_id}, #{rent_bike_id}, #{rent_cls_cd}, 'N', SYSDATE(), 'CHN_001', 'N')
+	
+	</insert>
+	
+	<!-- 결제정보 (프리미엄 이용권 유무) 가져오기 (일반권 포함)_20160704_JJH_START -->
+	<!-- 
+	<select id="getVoucher"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" 		resultType="org.fincl.miss.service.biz.bicycle.vo.BikeRentInfoVo">
+	
+		SELECT 
+			VOUCHER_SEQ, USR_SEQ, PAYMENT_CLS_CD,
+				CASE 
+					WHEN PAYMENT_CLS_CD = 'BIL_006'	THEN 'RCC_002'								
+					WHEN PAYMENT_CLS_CD = 'BIL_007'	THEN 'RCC_003'
+				ELSE 'RCC_001'
+			END RENT_CLS_CD
+		FROM TB_SVC_VOUCHER
+		WHERE USR_SEQ in 
+		(
+			SELECT USR_SEQ
+			FROM TB_SVC_MB_CARD 
+			WHERE MB_CARD_NO = dg_encrypt('TB_SVC_MB_CARD', 'MB_CARD_NO', #{cardNum}) 
+			AND CARD_USE_CLS_CD = 'R' 
+			AND END_DTTM = STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+		)
+		AND SYSDATE() BETWEEN VOUCHER_STR_DTTM AND VOUCHER_END_DTTM
+		AND VOUCHER_USE_YN = 'Y'
+		AND PAYMENT_CLS_CD NOT IN ('BIL_008' , 'BIL_009' )
+	
+	</select>
+	
+	
+	
+	<select id="getNotUseVoucherInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" 		resultType="org.fincl.miss.service.biz.bicycle.vo.BikeRentInfoVo">
+	
+		SELECT 
+			VOUCHER_SEQ, USR_SEQ, PAYMENT_CLS_CD,
+				CASE 
+					WHEN PAYMENT_CLS_CD = 'BIL_006'	THEN 'RCC_002'								
+					WHEN PAYMENT_CLS_CD = 'BIL_007'	THEN 'RCC_003'
+				ELSE 'RCC_001'
+			END RENT_CLS_CD
+		FROM TB_SVC_VOUCHER
+		WHERE USR_SEQ in 
+		(
+			SELECT USR_SEQ
+			FROM TB_SVC_MB_CARD 
+			WHERE MB_CARD_NO = dg_encrypt('TB_SVC_MB_CARD', 'MB_CARD_NO', #{cardNum}) 
+			AND CARD_USE_CLS_CD = 'R' 
+			AND END_DTTM = STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+		)
+		AND VOUCHER_STR_DTTM is null
+		AND VOUCHER_END_DTTM is null
+		AND VOUCHER_USE_YN = 'N'
+		AND PAYMENT_CLS_CD NOT IN ('BIL_008' , 'BIL_009' )
+	</select>
+	 -->
+	 <select id="getVoucher"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" 		resultType="org.fincl.miss.service.biz.bicycle.vo.BikeRentInfoVo">
+	
+		SELECT 
+			VOUCHER_SEQ, USR_SEQ, PAYMENT_CLS_CD,
+				CASE 
+					WHEN PAYMENT_CLS_CD = 'BIL_006'	THEN 'RCC_002'								
+					WHEN PAYMENT_CLS_CD = 'BIL_007'	THEN 'RCC_003'
+					WHEN PAYMENT_CLS_CD IN (SELECT COM_CD FROM TB_SYS_COM_CD WHERE ADD_VAL1 = 'PREMIUM_MDAY') THEN 'RCC_005'
+					WHEN PAYMENT_CLS_CD IN (SELECT COM_CD FROM TB_SYS_COM_CD WHERE ADD_VAL1 = 'PREMIUM_SEASON') THEN 'RCC_006'
+				ELSE 'RCC_001'
+			END RENT_CLS_CD
+		FROM TB_SVC_VOUCHER
+		WHERE USR_SEQ in 
+		(
+			SELECT USR_SEQ
+			FROM TB_SVC_MB_CARD 
+ 			WHERE MB_CARD_NO = dg_encrypt('TB_SVC_MB_CARD', 'MB_CARD_NO', #{cardNum})
+			AND CARD_USE_CLS_CD = 'R' 
+			AND END_DTTM = STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+		)
+		AND SYSDATE() BETWEEN VOUCHER_STR_DTTM AND VOUCHER_END_DTTM
+		AND VOUCHER_USE_YN = 'Y'
+		AND PAYMENT_CLS_CD NOT IN ('BIL_008' , 'BIL_009' )
+	
+	</select>
+	 
+	<select id="getNotUseVoucherInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" 		resultType="org.fincl.miss.service.biz.bicycle.vo.BikeRentInfoVo">
+	
+		SELECT 
+			VOUCHER_SEQ, USR_SEQ, PAYMENT_CLS_CD,
+				CASE 
+					WHEN PAYMENT_CLS_CD = 'BIL_006'	THEN 'RCC_002'								
+					WHEN PAYMENT_CLS_CD = 'BIL_007'	THEN 'RCC_003'
+					WHEN PAYMENT_CLS_CD IN (SELECT COM_CD FROM TB_SYS_COM_CD WHERE ADD_VAL1 = 'PREMIUM_MDAY') THEN 'RCC_005'
+					WHEN PAYMENT_CLS_CD IN (SELECT COM_CD FROM TB_SYS_COM_CD WHERE ADD_VAL1 = 'PREMIUM_SEASON') THEN 'RCC_006'
+				ELSE 'RCC_001'
+			END RENT_CLS_CD
+		FROM TB_SVC_VOUCHER
+		WHERE USR_SEQ in 
+		(
+			SELECT USR_SEQ
+			FROM TB_SVC_MB_CARD 
+ 			WHERE MB_CARD_NO = dg_encrypt('TB_SVC_MB_CARD', 'MB_CARD_NO', #{cardNum})
+			AND CARD_USE_CLS_CD = 'R' 
+			AND END_DTTM = STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+		)
+		AND VOUCHER_STR_DTTM is null
+		AND VOUCHER_END_DTTM is null
+		AND VOUCHER_USE_YN = 'N'
+		AND PAYMENT_CLS_CD NOT IN ('BIL_008' , 'BIL_009' )
+	</select>
+	<!-- 결제정보 (프리미엄 이용권 유무) 가져오기 (일반권 포함)_20160704_JJH_END -->
+	
+	<select id="getBikeInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" 		resultType="org.fincl.miss.service.biz.bicycle.vo.BikeRentInfoVo">
+	
+		SELECT A.BIKE_ID RENT_BIKE_ID, B.RACK_ID RENT_RACK_ID, B.CASCADE_YN, C.NOW_LOCATE_ID RENT_STATION_ID
+		FROM TB_OPR_BIKE A, TB_OPR_BIKE_PARKING  B, TB_OPR_RACK C
+		WHERE A.TERMINAL_ID = #{bicycleId }
+		AND A.BIKE_ID = B.BIKE_ID
+		AND B.RACK_ID = C.RACK_ID
+		
+	</select>
+	
+	
+	
+	<select id="getUseBikeInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="java.util.HashMap">
+	
+		SELECT *
+		FROM TB_SVC_RENT
+		WHERE USR_SEQ = #{userSeq}
+		AND VOUCHER_SEQ IN 
+			(SELECT VOUCHER_SEQ FROM TB_SVC_VOUCHER WHERE PAYMENT_CLS_CD NOT IN ('BIL_008'))
+		ORDER BY RENT_DTTM DESC
+		limit 1
+	
+	</select>
+	
+	
+	<select id="updateLockTEst"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="java.util.HashMap">
+	
+		
+		SELECT *
+ 		FROM TB_OPR_RACK 
+ 		WHERE RACK_ID = '12345671234567' for update
+	
+	</select>
+	
+	<!-- T-APP PATCH RENT_MTH_CD ADD 2019.12.05 -->
+	<select id="getForReturnUse"	parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+			
+		SELECT 
+			A.RENT_SEQ, A.USR_SEQ, A.VOUCHER_SEQ, A.RENT_STATION_ID, A.RENT_RACK_ID, A.RENT_BIKE_ID, A.RENT_CLS_CD,
+			A.RENT_YN, A.RENT_DTTM, A.TERMINAL_CARD_REG_YN, CASE WHEN A.RENT_MTH_CD IS NULL THEN 'CHN_001' ELSE A.RENT_MTH_CD END RENT_MTH_CD,
+ 			dg_decrypt('TB_SVC_USR', 'USR_MPN_NO', C.USR_MPN_NO) as 'USR_MPN_NO',
+			(SELECT BIKE_NO FROM spb.TB_OPR_BIKE WHERE BIKE_ID = A.RENT_BIKE_ID) AS BIKE_NO,
+			B.PAYMENT_CLS_CD, B.PAYMENT_SEQ, B.PAYMENT_DTTM, B.VOUCHER_STR_DTTM, B.VOUCHER_END_DTTM, B.PARTY_USE_CNT, B.VOUCHER_USE_YN,
+		SYSDATE() RETURN_DTTM,
+		ROUND((TIMESTAMPDIFF(SECOND, RENT_DTTM,SYSDATE()))/60) USE_MI,
+		CASE
+			WHEN A.RENT_CLS_CD = 'RCC_001' THEN 'S'
+			WHEN A.RENT_CLS_CD = 'RCC_002' THEN 'M'
+			WHEN A.RENT_CLS_CD = 'RCC_003' THEN 'N'
+			WHEN A.RENT_CLS_CD = 'RCC_004' THEN 'M'
+			WHEN A.RENT_CLS_CD = 'RCC_005' THEN 'P'
+			WHEN A.RENT_CLS_CD = 'RCC_006' THEN 'P'
+		END ADD_FEE_CLS,
+		C.USR_DEVICE_ID,
+		C.USR_DEVICE_TYPE
+		FROM TB_SVC_RENT A, TB_SVC_VOUCHER B,  spb.TB_SVC_USR C
+		WHERE A.USR_SEQ = B.USR_SEQ
+		AND A.VOUCHER_SEQ  = B.VOUCHER_SEQ
+		AND A.USR_SEQ = C.USR_SEQ
+		AND RENT_BIKE_ID = 
+		(
+			SELECT BIKE_ID
+			FROM TB_OPR_BIKE
+			WHERE TERMINAL_ID = #{bicycleId}
+		)
+		ORDER BY A.RENT_DTTM DESC
+		limit 1
+	
+	
+	</select>
+	<!-- 자전거 반납시 이용정보 가져오기_20160704_JJH_END -->
+	
+	<select id="getUserWeight"		parameterType="string"		resultType="int">
+	
+		SELECT 
+			IFNULL(MB_WGT, 65) MB_WGT
+		FROM TB_SVC_MB
+		WHERE USR_SEQ = #{usr_SEQ}
+	
+	</select>
+	
+	<select id="getOverFeePolicy"	parameterType="java.util.HashMap"	resultType="java.util.HashMap">	
+	
+	
+		SELECT *
+		FROM TB_SVC_ADD_FEE
+		WHERE ADD_FEE_CLS = #{ADD_FEE_CLS}
+		<if test="MIN != null">
+			AND OVER_END_MI = 0
+		</if>
+		<if test="MAX != null">
+			<![CDATA[
+				AND OVER_END_MI <> 0
+			]]>
+		</if>
+	
+	</select>
+	
+	
+	<select id="getOverFeeMaxPolicy"	parameterType="java.util.HashMap"	resultType="java.util.HashMap">	
+	
+	
+		SELECT *
+		FROM TB_SVC_ADD_FEE
+		WHERE ADD_FEE_CLS = #{ADD_FEE_CLS}
+		AND OVER_END_MI = 0
+	
+	</select>
+	
+	
+	<select id="getOverFeeMinPolicy"	parameterType="java.util.HashMap"	resultType="java.util.HashMap">	
+	
+	
+		SELECT *
+		FROM TB_SVC_ADD_FEE
+		WHERE ADD_FEE_CLS = #{ADD_FEE_CLS}
+		<![CDATA[
+			AND OVER_END_MI <> 0
+		]]>
+	
+	</select>
+	
+	<!-- T-APP PATCH RENT_MTH_CD ADD 2019.12.05 -->
+	<insert id="insertRentHist"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_SVC_RENT_HIST
+		(
+			RENT_DTTM, RENT_YMD, USR_SEQ, VOUCHER_SEQ, RENT_STATION_ID, RENT_RACK_ID, RENT_BIKE_ID, RENT_CLS_CD,
+			RETURN_STATION_ID, RETURN_RACK_ID, RETURN_DTTM, RETURN_YMD, USE_MI, OVER_FEE_YN, TERMINAL_CARD_REG_YN, TRANSFER_YN, USE_DIST,
+			CONSUME_CAL, REDUCE_CO2, RENT_MTH_CD
+		)
+		VALUES
+		(
+			#{RENT_DTTM}, DATE_FORMAT(#{RENT_DTTM}, '%Y-%m-%d'), #{USR_SEQ}, #{VOUCHER_SEQ}, #{RENT_STATION_ID}, #{RENT_RACK_ID}, #{RENT_BIKE_ID}, #{RENT_CLS_CD},
+			#{RETURN_STATION_ID}, #{RETURN_RACK_ID}, #{RETURN_DTTM}, DATE_FORMAT(#{RETURN_DTTM}, '%Y-%m-%d'), #{USE_MI}, #{OVER_FEE_YN}, IFNULL(#{TERMINAL_CARD_REG_YN},'N'), #{TRANSFER_YN}, #{USE_DIST},
+			#{CONSUME_CAL}, #{REDUCE_CO2}, IFNULL(#{RENT_MTH_CD},'CHN_001')
+		)
+		<selectKey resultType="string" keyProperty="RENT_HIST_SEQ" order="AFTER">
+        	SELECT LAST_INSERT_ID() 
+   		</selectKey>        
+   		
+	</insert>
+	
+	
+	<insert id="insertRentOverFee"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_SVC_RENT_OVER_FEE
+		(
+			RENT_HIST_SEQ, RENT_DTTM, OVER_MI, OVER_FEE, OVER_FEE_PAYMENT_YN, OVER_FEE_PROCESS_CLS_CD 
+		)
+		VALUES
+		(
+			#{RENT_HIST_SEQ}, #{RENT_DTTM}, #{OVER_MI}, IF(CAST(#{OVER_FEE} AS SIGNED) > '30000','30000',#{OVER_FEE}), 'N', 'OPD_002'
+		)
+	
+	</insert>
+	
+	
+	<!--
+	<insert id="insertRentOverFee"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_SVC_RENT_OVER_FEE
+		(
+			RENT_HIST_SEQ, RENT_DTTM, OVER_MI, OVER_FEE, OVER_FEE_PAYMENT_YN, OVER_FEE_PROCESS_CLS_CD 
+		)
+		VALUES
+		(
+			#{RENT_HIST_SEQ}, #{RENT_DTTM}, #{OVER_MI}, #{OVER_FEE}, 'N', 'OPD_002'
+		)
+	
+	</insert>
+	-->
+	
+	<update id="updateDeviceCheck"	parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">	
+	
+		UPDATE TB_IOT_DEVICE
+		SET
+			DEVICE_STUS_CD = 'APS_003',
+			LAST_CONN_DTTM = SYSDATE(),
+			LAST_CHK_DTTM = SYSDATE()
+		WHERE 
+			DEVICE_ID = #{bicycleId}
+	
+	</update>
+	
+	<delete id="deleteParkingInfo"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		DELETE FROM TB_OPR_BIKE_PARKING
+		WHERE
+			RACK_ID = #{RETURN_RACK_ID}
+	</delete>
+	
+	<delete id="deleteDuplicatedParkingInfo"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		DELETE FROM TB_OPR_BIKE_PARKING
+		WHERE
+			RACK_ID &lt;&gt; #{RETURN_RACK_ID} AND BIKE_ID  = (SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID =  #{RENT_BIKE_ID} )
+	</delete>
+	
+	<delete id="deleteDuplicatedCascadeParkingInfo"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		DELETE FROM TB_OPR_BIKE_PARKING
+		WHERE
+			BIKE_ID  = (SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID =  #{RENT_BIKE_ID})
+	</delete>
+	
+	<insert id="insertParkingInfo"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_OPR_BIKE_PARKING
+		(
+			RACK_ID, BIKE_ID, CASCADE_YN, CASCADE_BIKE_ID, REG_DTTM 
+		)
+		VALUES
+		(
+			#{RETURN_RACK_ID}, #{RENT_BIKE_ID}, #{CASCADE_YN}, 
+			<choose>
+				<when test="CASCADE_YN != null and CASCADE_YN eq 'Y'.toString()">
+					(SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{CASCADE_BIKE_ID})
+				</when>
+				<otherwise>
+					null
+				</otherwise>
+			</choose>
+			, SYSDATE()
+		)
+	
+	</insert>
+	
+	<insert id="insertPeriodParkingInfo"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_OPR_BIKE_PARKING
+		(
+			RACK_ID, BIKE_ID, CASCADE_YN, CASCADE_BIKE_ID, REG_DTTM 
+		)
+		VALUES
+		(
+			#{RETURN_RACK_ID},
+			(SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID =  #{RENT_BIKE_ID})
+			, #{CASCADE_YN}, 
+			<choose>
+				<when test="CASCADE_YN != null and CASCADE_YN eq 'Y'.toString()">
+					(SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{CASCADE_BIKE_ID})
+				</when>
+				<otherwise>
+					null
+				</otherwise>
+			</choose>
+			, SYSDATE()
+		)
+	
+	</insert>
+	
+	<update id="updateBikeLocation"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		UPDATE 
+			TB_OPR_BIKE_LOCATE_HIST
+		SET 
+			LOCATE_END_DTTM = date_add(now() , INTERVAL -1 SECOND)
+		WHERE 
+			LOCATE_END_DTTM = STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+			AND BIKE_ID = #{RENT_BIKE_ID}
+	</update>
+	
+	<insert id="insertPeriodBikeLocation"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_OPR_BIKE_LOCATE_HIST
+		(
+			BIKE_ID, LOCATE_CLS_CD, LOCATE_ID, LOCATE_STR_DTTM, LOCATE_END_DTTM 
+		)
+		VALUES
+		(
+			(SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID =  #{RENT_BIKE_ID})
+			, 'R', #{RETURN_RACK_ID}, SYSDATE(), STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+		)
+	
+	</insert>
+	
+	<insert id="insertBikeLocation"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_OPR_BIKE_LOCATE_HIST
+		(
+			BIKE_ID, LOCATE_CLS_CD, LOCATE_ID, LOCATE_STR_DTTM, LOCATE_END_DTTM 
+		)
+		VALUES
+		(
+			#{RENT_BIKE_ID}, 'R', #{RETURN_RACK_ID}, SYSDATE(), STR_TO_DATE('9999-12-31 23:59:59','%Y-%m-%d %H:%i:%s')
+		)
+	
+	</insert>
+	
+	<update id="updateBike"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">	
+	
+		UPDATE	TB_OPR_BIKE
+		SET 
+			BIKE_STUS_CD =  'BKS_003',
+			TOT_MOVE_DIST = TOT_MOVE_DIST + CONVERT(#{USE_DIST}, UNSIGNED),
+			CENTER_ID = null
+		WHERE 
+			BIKE_ID = #{RENT_BIKE_ID}
+		
+	</update>
+
+	<update id="updateBikeBreakDowon"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">	
+	
+		UPDATE	TB_OPR_BIKE
+		SET 
+			BIKE_STUS_CD =  'BKS_001',
+			TOT_MOVE_DIST = TOT_MOVE_DIST + CONVERT(#{USE_DIST}, UNSIGNED),
+			CENTER_ID = null
+		WHERE 
+			BIKE_ID = #{RENT_BIKE_ID}
+		
+	</update>
+
+	<delete id="deleteRentInfo"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		DELETE FROM TB_SVC_RENT
+		WHERE RENT_BIKE_ID = #{RENT_BIKE_ID} AND RENT_YN = 'Y'
+
+	
+	</delete>
+	
+	<select id="getRentSeq"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="String">
+	
+		SELECT RENT_SEQ
+		FROM TB_SVC_RENT
+		WHERE RENT_BIKE_ID = #{RENT_BIKE_ID} 
+		AND RENT_YN = 'Y'
+	</select>
+	
+	
+	<select id="getNoParkingRock"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="int">
+	
+		SELECT 
+			COUNT(*)
+		FROM TB_OPR_RACK A 
+		WHERE A.RACK_STUS_CD = 'RAS_003'
+		AND A.NOW_LOCATE_ID = #{stationId}
+		AND A.RACK_ID NOT IN (
+			SELECT RACK_ID
+			FROM TB_OPR_BIKE_PARKING
+		)
+	
+	</select>
+	
+	<select id="selectCascadParkingRock"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"	resultType="java.util.HashMap">
+	
+		SELECT 
+			RACK_ID as 'RETURN_RACK_ID'
+		FROM TB_OPR_BIKE_PARKING 
+		WHERE 
+			BIKE_ID =  ( SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{rockId} )
+	
+	</select>
+	
+	<select id="getRentHist"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="java.util.HashMap">
+	
+		SELECT 
+			*
+		FROM TB_SVC_RENT_HIST
+		WHERE RENT_BIKE_ID = 
+		(
+			SELECT  BIKE_ID
+			FROM TB_OPR_BIKE
+			WHERE TERMINAL_ID = #{bicycleId}
+		)
+		<![CDATA[
+			AND TIMESTAMPDIFF(MINUTE,RETURN_DTTM,SYSDATE() ) < 10
+		]]>
+		  AND RENT_DTTM BETWEEN ( NOW() + INTERVAL -2 DAY ) AND NOW()
+		ORDER BY RENT_DTTM DESC
+		LIMIT 1
+		
+	</select>
+	
+	<insert id="insertRentMoveInfo"		parameterType="java.util.HashMap"	>
+	
+		INSERT INTO TB_SVC_RENT_MOVE_INFO
+		(
+			RENT_HIST_SEQ, RENT_DTTM, MOVE_ORD, MOVE_LATITUDE, MOVE_LONGITUDE
+		)
+		VALUES
+		(
+			#{RENT_HIST_SEQ}, #{RENT_DTTM}, #{MOVE_ORD},
+ 			dg_encrypt_float('TB_SVC_RENT_MOVE_INFO', 'MOVE_LATITUDE', #{MOVE_LATITUDE}),
+ 			dg_encrypt_float('TB_SVC_RENT_MOVE_INFO', 'MOVE_LONGITUDE', #{MOVE_LONGITUDE})
+		)
+	
+	</insert>
+
+
+	<!-- T-APP PATCH RENT_MTH_CD ADD  + SHORT TIME ADD 2019.12.05 -->
+	<select id="getRentMsgInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"		resultType="java.util.HashMap">
+		SELECT  A.BIKE_NO, 
+				A.STATION_NAME, 
+				A.USR_MPN_NO AS DEST_NO, 
+				CASE 
+					WHEN LEFT(A.ADD_VAL1, 7) = 'PREMIUM'
+					THEN LPAD(HOUR(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+															 FROM TB_SYS_COM_CD
+															 WHERE COM_CD = 'MSI_022') MINUTE)),2,0) 
+					WHEN LEFT(ADD_VAL1,6) = 'ALLDAY'
+					THEN LPAD(HOUR(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+															 FROM TB_SYS_COM_CD
+															 WHERE COM_CD = 'MSI_011') MINUTE)),2,0)
+					WHEN LEFT(ADD_VAL1,5) = 'SHORT'
+					THEN LPAD(HOUR(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+															 FROM TB_SYS_COM_CD
+															 WHERE COM_CD = 'MSI_035') MINUTE)),2,0)
+					ELSE LPAD(HOUR(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+															 FROM TB_SYS_COM_CD
+															 WHERE COM_CD = 'MSI_011') MINUTE)),2,0)
+				END AS HOUR, 
+				CASE 
+					WHEN LEFT(A.ADD_VAL1, 7) = 'PREMIUM' 
+					THEN LPAD(MINUTE(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+																FROM TB_SYS_COM_CD
+																WHERE COM_CD = 'MSI_022') MINUTE)),2,0) 	
+				    WHEN LEFT(ADD_VAL1,6) = 'ALLDAY'
+					THEN LPAD(MINUTE(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+															 FROM TB_SYS_COM_CD
+															 WHERE COM_CD = 'MSI_011') MINUTE)),2,0)
+					WHEN LEFT(ADD_VAL1,5) = 'SHORT'
+					THEN LPAD(MINUTE(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+															 FROM TB_SYS_COM_CD
+															 WHERE COM_CD = 'MSI_035') MINUTE)),2,0)
+					ELSE LPAD(MINUTE(DATE_ADD(NOW(), INTERVAL (SELECT ADD_VAL1
+															 FROM TB_SYS_COM_CD
+															 WHERE COM_CD = 'MSI_011') MINUTE)),2,0) 
+				END AS MINUTES, A.RENT_MTH_CD
+		FROM (SELECT BIKE.BIKE_NO, 
+						 ST.STATION_NAME, 
+ 						 DG_DECRYPT('TB_SVC_USR', 'USR_MPN_NO', USR.USR_MPN_NO) AS USR_MPN_NO,
+						 CD.ADD_VAL1, 
+						 REN.RENT_MTH_CD
+				FROM TB_SVC_RENT REN LEFT JOIN TB_SVC_VOUCHER VOU ON REN.VOUCHER_SEQ = VOU.VOUCHER_SEQ
+					  LEFT JOIN TB_OPR_BIKE BIKE ON REN.RENT_BIKE_ID = BIKE.BIKE_ID 
+					  LEFT JOIN	TB_OPR_MLANG_STATION ST ON REN.RENT_STATION_ID = ST.STATION_ID AND ST.LANG_CLS_CD = 'LAG_001' 
+					  LEFT JOIN	TB_SVC_USR USR ON REN.USR_SEQ = USR.USR_SEQ 
+					  LEFT JOIN	TB_SYS_COM_CD CD ON VOU.PAYMENT_CLS_CD = CD.COM_CD
+				WHERE 1=1		
+				AND REN.USR_SEQ = #{userSeq}
+				AND BIKE.BIKE_ID = ( SELECT BIKE_ID
+											FROM TB_OPR_BIKE
+											WHERE TERMINAL_ID = #{bicycleId})
+				AND ST.STATION_ID = #{stationId})A
+	</select>
+	<!-- 프리미엄 이용권 대여문자 수정 (일반권 포함)_20160701_JJH_END -->
+
+	<select id="checkRelocateHist"		parameterType="java.util.HashMap"	resultType="int">
+		SELECT count(*) FROM TB_MTC_RELOCATE_HIST
+		WHERE RELOCATE_END_DTTM IS NULL
+		AND RELOCATE_BIKE_ID = #{bicycleId} 
+	</select>
+	
+	<insert id="insertRelocateHist"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+		INSERT INTO TB_MTC_RELOCATE_HIST
+		(RELOCATE_BIKE_ID, FROM_STATION_ID, FROM_RACK_ID, MOVEAGN_ADMIN_ID, RELOCATE_STR_DTTM, RELOCATE_CMPT_YN)
+		VALUES
+		(	#{bicycleId}, 
+			(SELECT NOW_LOCATE_ID FROM TB_OPR_RACK WHERE RACK_ID = #{rockId}),
+			#{rockId}, 
+			(SELECT ADMIN_ID FROM TB_SYS_ADMIN WHERE ADMIN_CARD_NO = dg_encrypt('TB_SYS_ADMIN', 'ADMIN_CARD_NO', #{cardNum})  AND USE_YN = 'Y'),
+			now(), 
+			'N')
+	</insert>
+	
+	<insert id="replaceRelocateHist"		parameterType="org.fincl.miss.service.biz.bicycle.vo.AdminMountingRequestVo">
+		INSERT INTO TB_MTC_RELOCATE_HIST
+		(RELOCATE_BIKE_ID, TO_STATION_ID, TO_RACK_ID, RELOCATE_ADMIN_ID, MOVEAGN_ADMIN_ID, RELOCATE_STR_DTTM, RELOCATE_END_DTTM, RELOCATE_CMPT_YN)
+		VALUES
+		(	#{bicycleId}, 
+			(SELECT NOW_LOCATE_ID FROM TB_OPR_RACK WHERE RACK_ID = #{mountsId}),
+			#{mountsId}, 
+ 			(SELECT ADMIN_ID FROM TB_SYS_ADMIN WHERE ADMIN_CARD_NO = dg_encrypt('TB_SYS_ADMIN', 'ADMIN_CARD_NO', #{cardNum}) AND USE_YN = 'Y'),
+ 			(SELECT ADMIN_ID FROM TB_SYS_ADMIN WHERE ADMIN_CARD_NO = dg_encrypt('TB_SYS_ADMIN', 'ADMIN_CARD_NO', #{cardNum}) AND USE_YN = 'Y'),
+			now(), now(),
+			'Y')
+	</insert>
+	
+	<update id="updateRelocateHist"		parameterType="org.fincl.miss.service.biz.bicycle.vo.AdminMountingRequestVo">
+		UPDATE TB_MTC_RELOCATE_HIST
+		SET 
+			TO_STATION_ID = (SELECT NOW_LOCATE_ID FROM TB_OPR_RACK WHERE RACK_ID = #{mountsId}),
+			TO_RACK_ID = #{mountsId},
+ 			RELOCATE_ADMIN_ID = (SELECT ADMIN_ID FROM TB_SYS_ADMIN WHERE ADMIN_CARD_NO = dg_encrypt('TB_SYS_ADMIN', 'ADMIN_CARD_NO', #{cardNum}) AND USE_YN = 'Y'),
+			RELOCATE_END_DTTM = now(), 
+			RELOCATE_CMPT_YN = 'Y'
+		WHERE 
+			RELOCATE_END_DTTM IS NULL
+			AND RELOCATE_CMPT_YN = 'N'
+			AND RELOCATE_BIKE_ID = #{bicycleId} 
+	</update>
+	
+	<delete id="removeRelocateHist"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+		DELETE FROM TB_MTC_RELOCATE_HIST
+		WHERE 
+			RELOCATE_END_DTTM IS NULL
+			AND RELOCATE_CMPT_YN = 'N'
+			AND RELOCATE_BIKE_ID = ( SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{bicycleId} ) 
+	</delete>
+	
+	<delete id="deleteParkingInfoOnly"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		DELETE FROM TB_OPR_BIKE_PARKING
+		WHERE
+			RACK_ID = #{RETURN_RACK_ID}
+			AND CASCADE_BIKE_ID IS NULL
+	</delete>
+	
+	<update id="updateDeviceState"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		UPDATE TB_IOT_DEVICE
+			SET 
+				LAST_CONN_DTTM = SYSDATE()
+		WHERE DEVICE_ID =  (SELECT TERMINAL_ID FROM TB_OPR_BIKE WHERE BIKE_ID = #{RENT_BIKE_ID} )
+		
+	</update>
+	<delete id="deleteParkingInfoCascade"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		DELETE FROM TB_OPR_BIKE_PARKING
+		WHERE
+			RACK_ID = #{RETURN_RACK_ID}
+			AND CASCADE_BIKE_ID = ( SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{CASCADE_BIKE_ID})
+	</delete>
+	
+	<!-- T-APP PATCH RENT_MTH_CD ADD 2019.12.05 -->
+	<select id="checkInvalidRentInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"	resultType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		SELECT 
+			RENT_SEQ,
+			RENT_DTTM, 
+			R.USR_SEQ,
+			VOUCHER_SEQ, 
+			RENT_STATION_ID,
+			RENT_RACK_ID, 
+			RENT_BIKE_ID, 
+			RENT_CLS_CD, 
+			RENT_BIKE_ID,
+			BIKE_NO,
+ 			dg_decrypt('TB_SVC_USR', 'USR_MPN_NO', USR_MPN_NO) as 'USR_MPN_NO',
+ 			R.RENT_MTH_CD
+		FROM 
+			TB_SVC_RENT R, 
+			TB_SVC_USR U,
+			TB_OPR_BIKE B  
+		WHERE 
+			R.USR_SEQ = U.USR_SEQ
+			AND R.RENT_BIKE_ID = B.BIKE_ID 
+			AND  RENT_BIKE_ID = 
+		(
+			SELECT  BIKE_ID
+			FROM TB_OPR_BIKE
+			WHERE TERMINAL_ID =  #{bicycleId} 
+		)
+			AND RENT_YN = 'Y'
+			ORDER BY RENT_DTTM DESC
+			limit 1
+	</select>
+	
+	<insert id="insertInvalidRentHist"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+	
+		INSERT INTO TB_SVC_RENT_HIST
+		(
+			RENT_DTTM, RENT_YMD, USR_SEQ, VOUCHER_SEQ, RENT_STATION_ID, RENT_RACK_ID, RENT_BIKE_ID, RENT_CLS_CD,
+			RETURN_STATION_ID, RETURN_RACK_ID, RETURN_DTTM, RETURN_YMD, USE_MI, OVER_FEE_YN, TERMINAL_CARD_REG_YN, TRANSFER_YN, USE_DIST,
+			CONSUME_CAL, REDUCE_CO2, RENT_MTH_CD
+		)
+		VALUES
+		(
+			#{RENT_DTTM}, DATE_FORMAT(#{RENT_DTTM}, '%Y-%m-%d'), #{USR_SEQ}, #{VOUCHER_SEQ}, #{RENT_STATION_ID}, #{RENT_RACK_ID}, #{RENT_BIKE_ID}, #{RENT_CLS_CD},
+			(SELECT NOW_LOCATE_ID FROM TB_OPR_RACK WHERE RACK_ID = #{RETURN_RACK_ID}),
+			 #{RETURN_RACK_ID}, NOW(), DATE_FORMAT(NOW(), '%Y-%m-%d'), 0, 'N', 'N', #{TRANSFER_YN}, 0,
+			0, 0, IFNULL(#{RENT_MTH_CD},'CHN_001')
+		)
+		<selectKey resultType="string" keyProperty="RENT_HIST_SEQ" order="AFTER">
+        	SELECT LAST_INSERT_ID() 
+   		</selectKey>        
+   		
+	</insert>
+	
+	<select id="getStationNo" parameterType="String" resultType="String">
+		SELECT CONCAT(CONVERT(STATION_NO, UNSIGNED), '') AS STATION_NO
+		FROM TB_OPR_STATION S
+		WHERE 1=1
+		AND S.STATION_ID IN (SELECT NOW_LOCATE_ID
+							 FROM TB_OPR_RACK R
+							 WHERE 1=1
+							 AND RACK_ID = #{RETURN_RACK_ID})
+	</select>
+	
+	
+	
+	<select id="getStationName" parameterType="String" resultType="String">
+		SELECT STATION_NAME
+		FROM TB_OPR_MLANG_STATION STA, TB_OPR_RACK RACK 
+		WHERE STA.STATION_ID = RACK.NOW_LOCATE_ID
+		AND STA.LANG_CLS_CD = 'LAG_001'
+		AND RACK.RACK_ID = #{RETURN_RACK_ID}
+	</select>
+	
+	
+	<select id="getStationUSEYN" parameterType="String" resultType="java.util.HashMap">
+		SELECT STATION_USE_YN, REASON, UNUSE_STR_DTTM
+		FROM TB_OPR_STATION STA, TB_OPR_RACK RACK 
+		WHERE STA.STATION_ID = RACK.NOW_LOCATE_ID
+		AND RACK.RACK_ID = #{RETURN_RACK_ID}
+	</select>
+	
+		
+	<update id="setLastChkTime"		parameterType="org.fincl.miss.service.biz.bicycle.vo.RentalRequestVo">
+	
+		UPDATE TB_IOT_DEVICE
+			SET 
+				LAST_CONN_DTTM = SYSDATE()
+		WHERE DEVICE_ID =  (SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{bicycleId} )
+		
+	</update>
+	
+	
+	<insert id="insertPeriodInfo" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentalRequestVo">
+		INSERT INTO TB_OPR_PERIOD_10MIN_ERROR
+			(BIKE_ID, BIKE_NO, BIKE_STUS_CD, NOW_LOCATE_ID, RACK_ID, CASCADE_YN, CASCADE_BIKE_ID, LAST_CONN_DTTM)
+		VALUES
+			((SELECT BIKE_ID FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{bicycleId}), 
+			 (SELECT BIKE_NO FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{bicycleId}),
+			 #{bicycleState},
+			 (SELECT STATION_NAME FROM TB_OPR_MLANG_STATION WHERE 1=1 AND LANG_CLS_CD = 'LAG_001' AND STATION_ID = (SELECT NOW_LOCATE_ID FROM TB_OPR_RACK WHERE 1=1 AND RACK_ID = #{mountsId})),
+			 #{mountsId},
+			 (SELECT CASE WHEN #{returnForm} = '01' THEN 'Y' ELSE NULL END AS CASCADE_YN FROM DUAL),
+			 (SELECT CASE WHEN #{returnForm} = '01' THEN #{mountsId} ELSE NULL END AS CASCADE_BIKE_ID FROM DUAL),
+			 NOW()
+			) 
+
+	</insert>
+	
+	<!-- 반납 => 탄소절감량 마일리지 정책 Open 여부_20170112 -->
+	<select id="getPolicyOpenYn" parameterType="String" resultType="String">
+		SELECT ADD_VAL1 AS POLICY_YN
+		FROM TB_SYS_COM_CD
+		WHERE 1=1
+		AND COM_CD = #{MILEAGE_POLICY_OPEN_CD}
+	</select>
+	
+	<!-- 반납 => 정회원 여부_20170112 -->
+	<select id="getMemberYn" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="String">
+		SELECT CASE
+			   	WHEN COUNT(USR_SEQ) > 0
+			   	THEN 'Y'
+			   	ELSE 'N'
+			   END AS MB_YN
+		FROM TB_SVC_MB
+		WHERE 1=1
+		AND USR_SEQ = #{USR_SEQ}
+		AND LEAVE_YN = 'N';
+	</select>
+	
+	<!-- 탄소절감 등록 대여/반납 대여소 정보 가져오기_20170121 -->
+	<select id="getSaveCarbonStationInfo" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="java.util.HashMap">
+		SELECT RENT_STATION_ID AS SAVE_CARBON_RENT_STATION_ID,
+				 RETURN_STATION_ID AS SAVE_CARBON_RETURN_STATION_ID
+		FROM TB_SYS_SAVECARBON
+		WHERE 1=1
+		AND USR_SEQ = #{USR_SEQ}
+		AND END_YMD = '9999-12-31'
+	</select>
+	
+	<!-- 반납 => 회원 별 탄소절감 정보 조회 및 대여/반납 대여소 마일리지 적용여부 확인_20170112 -->
+	<select id="getSaveCarbonInfoCompare" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		<![CDATA[
+		SELECT *
+		FROM
+		(
+			SELECT *
+			FROM TB_SVC_RENT_HIST
+			WHERE 1=1
+			AND USR_SEQ = #{USR_SEQ}
+			AND USE_MI >= 2
+			AND RETURN_DTTM + INTERVAL 5 MINUTE > NOW()
+			ORDER BY RENT_HIST_SEQ DESC
+			LIMIT 1
+		)A
+		WHERE 1=1
+		AND (A.RENT_STATION_ID = #{SAVE_CARBON_RENT_STATION_ID} AND A.RETURN_STATION_ID = #{SAVE_CARBON_RETURN_STATION_ID})
+		OR (A.RENT_STATION_ID = #{SAVE_CARBON_RETURN_STATION_ID} AND A.RETURN_STATION_ID = #{SAVE_CARBON_RENT_STATION_ID})
+		]]>
+	</select>
+	
+	<!-- 
+	<select id="getRecommendStationInfoCompare" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		<![CDATA[
+		SELECT H.*
+		FROM TB_SVC_RENT_HIST H LEFT JOIN TB_SYS_RECOMMEND_STATION S ON H.RENT_HIST_SEQ = S.RENT_HIST_SEQ
+		WHERE 1=1
+		AND S.USR_SEQ = #{USR_SEQ}
+		AND S.RETURN_RANK < (SELECT ${HOUR_COLUMN}
+						     FROM (SELECT *
+						           FROM TB_SYS_RECOMMEND_STATION_POLICY
+						           WHERE 1=1
+						           AND STATION_ID = (SELECT RETURN_STATION_ID
+									                 FROM TB_SVC_RENT_HIST
+									                 WHERE 1=1
+									                 AND USR_SEQ = #{USR_SEQ}
+									                 ORDER BY RETURN_DTTM DESC
+									                 LIMIT 1)
+						           ORDER BY REG_DTTM DESC
+						           LIMIT 1)A
+						    ) 
+		AND H.USE_MI >= 2
+		ORDER BY RENT_HIST_SEQ DESC
+		LIMIT 1
+		]]>
+	</select>
+	-->
+	
+	<!-- 
+	<select id="getRecommendStationInfoCompare" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		<![CDATA[
+		SELECT H.*
+		FROM TB_SVC_RENT_HIST H LEFT JOIN TB_SYS_RECOMMEND_STATION S ON H.RENT_HIST_SEQ = S.RENT_HIST_SEQ
+		WHERE 1=1
+		AND S.USR_SEQ = #{USR_SEQ}
+		AND S.RETURN_RANK < (SELECT ${HOUR_COLUMN}
+						     FROM (SELECT *
+						           FROM TB_SYS_RECOMMEND_STATION_POLICY
+						           WHERE 1=1
+						           AND STATION_ID = (SELECT RETURN_STATION_ID
+									                 FROM TB_SVC_RENT_HIST
+									                 WHERE 1=1
+									                 AND USR_SEQ = #{USR_SEQ}
+									                 ORDER BY RETURN_DTTM DESC
+									                 LIMIT 1)
+						           ORDER BY REG_DTTM DESC
+						           LIMIT 1)A
+						    ) 
+		AND H.USE_MI >= 2
+		AND H.RETURN_DTTM >= NOW() - INTERVAL 4 MINUTE
+		ORDER BY RENT_HIST_SEQ DESC
+		LIMIT 1
+		]]>
+	</select>
+	 -->
+	 
+	<select id="getRecommendStationInfoCompare" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		<![CDATA[
+		SELECT *
+		FROM TB_SVC_RENT_HIST
+		WHERE 1=1
+		AND RENT_HIST_SEQ = (SELECT CASE
+								    	WHEN MAX_VALUE >= RETURN_RANK
+								    	THEN  RENT_HIST_SEQ
+								    	ELSE 'N'
+								    END AS RECOMMEND_YN
+							 FROM (SELECT CASE
+									    	  WHEN 1ST_STATION_ID = RETURN_STATION_ID
+										      THEN 1ST_STATION_MAX_VALUE
+										      WHEN 2ND_STATION_ID = RETURN_STATION_ID
+										      THEN 2ND_STATION_MAX_VALUE
+										      WHEN 3RD_STATION_ID = RETURN_STATION_ID
+										      THEN 3RD_STATION_MAX_VALUE
+										      ELSE ''
+									      END AS MAX_VALUE,
+									      RETURN_RANK,
+									      S.RENT_HIST_SEQ
+								   FROM TB_SYS_RECOMMEND_STATION S INNER JOIN (SELECT H.RETURN_STATION_ID, H.RENT_HIST_SEQ
+															                   FROM TB_SYS_RECOMMEND_STATION RS LEFT JOIN TB_SVC_RENT_HIST H ON RS.RENT_HIST_SEQ = H.RENT_HIST_SEQ
+															                   WHERE 1=1
+															                   AND RS.USR_SEQ = #{USR_SEQ}
+															                   ORDER BY H.RETURN_DTTM DESC
+															                   LIMIT 1) TMP ON S.RENT_HIST_SEQ = TMP.RENT_HIST_SEQ
+								 )A
+							)
+		AND USE_MI >= 2
+		]]>
+	</select>
+	
+	<!-- 반납 => 마일리지 최대 포인트 확인_20170112 -->
+	<select id="getMileageMaxPoint" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="java.util.HashMap">	
+		SELECT IFNULL(SUM(MILEAGE_POINT), 0) AS MILEAGE_SUM_POINT,
+				CONVERT((SELECT ADD_VAL1
+							FROM TB_SYS_COM_CD
+							WHERE 1=1
+							AND COM_CD = #{MILEAGE_DAY_MAX_CD}), UNSIGNED) AS MAX_MILEAGE_POINT
+		FROM TB_SVC_MILEAGE
+		WHERE 1=1
+		AND MILEAGE_CLS_CD = #{MILEAGE_CD}
+		AND USR_SEQ = #{USR_SEQ}
+		AND DATE_FORMAT(REG_DTTM, '%Y-%m-%d') = DATE_FORMAT(NOW(), '%Y-%m-%d')
+	</select>
+	
+	<!-- 반납 => 탄소절감량 마일리지 정보 삽입_20170113 -->
+	<insert id="insertSaveCarbonMileage" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		INSERT INTO TB_SVC_MILEAGE
+			(USR_SEQ, MILEAGE_CLS_CD, MILEAGE_POINT, RENT_HIST_SEQ)
+		VALUES
+			(#{USR_SEQ}, #{MILEAGE_CD}, (SELECT ADD_VAL1 FROM TB_SYS_COM_CD WHERE COM_CD = #{MILEAGE_DAY_CD}), #{RENT_HIST_SEQ});
+	</insert>
+	
+	<update id="setRecommendTimePolicy" parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+		UPDATE TB_SYS_RENT_MAX_CNT_HIST
+		<if test="rent_return_flag == 1">
+		SET ${hour_column} = CONCAT((CONVERT(${hour_column}, SIGNED) + 1), '')
+		</if>
+		<if test="rent_return_flag == 2">
+		SET ${hour_column} = CONCAT((CONVERT(${hour_column}, SIGNED) - 1), '')
+		</if>
+		WHERE 1=1
+		AND RENT_RETURN_YMD = #{rent_return_ymd}
+		AND STATION_ID = (SELECT NOW_LOCATE_ID
+						  FROM TB_OPR_RACK
+						  WHERE 1=1
+						  AND RACK_ID = #{rockId})
+	</update>
+	
+	<select id="getRecommendMileagePolicyOpenYn" resultType="String">
+		SELECT ADD_VAL1 AS POLICY_OPEN_YN
+		FROM TB_SYS_COM_CD
+		WHERE 1=1
+		AND COM_CD = 'MSI_029'
+	</select>
+	
+	<select id="getRentHistSeq" resultType="String">
+		SELECT RENT_HIST_SEQ
+		FROM TB_SVC_RENT_HIST
+		WHERE 1=1
+		AND USR_SEQ = #{USR_SEQ}
+		AND RETURN_DTTM IN (SELECT MAX(RETURN_DTTM) AS RETURN_DTTM
+							FROM TB_SVC_RENT_HIST
+							WHERE 1=1
+							AND USR_SEQ = #{USR_SEQ}
+<!-- 							AND USE_MI > 2 -->
+							AND RETURN_DTTM >= NOW() - INTERVAL 5 MINUTE
+							)
+		LIMIT 1
+	</select>
+	
+	<select id="getReturnRank" resultType="String">
+		SELECT B.RANK
+		FROM
+		(
+			SELECT A.*,
+			   @vRank := @vRank + 1 AS RANK
+			FROM
+			( 
+			   SELECT P.*,
+			          DATE_FORMAT(REG_DTTM, '%Y%m%d%H%m%s') AS TMP
+			   FROM TB_OPR_BIKE_PARKING P
+			   WHERE 1=1
+			   AND RACK_ID IN (SELECT RACK_ID
+					        FROM TB_OPR_RACK
+					        WHERE 1=1
+					        AND NOW_LOCATE_ID = (SELECT NOW_LOCATE_ID
+					              FROM TB_OPR_RACK
+					              WHERE 1=1
+					              AND RACK_ID = #{RETURN_RACK_ID}))
+			)A, (SELECT @vRank := 0) R
+			WHERE 1=1
+			ORDER BY TMP
+		)B
+		WHERE 1=1
+		AND BIKE_ID = #{RENT_BIKE_ID} 	
+	</select>
+	
+	<update id="updateRecommendInfo" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo">
+		UPDATE TB_SYS_RECOMMEND_STATION
+		SET RENT_HIST_SEQ = #{RENT_HIST_SEQ},
+			RETURN_RANK = #{RETURN_RANK}
+		WHERE 1=1
+		AND RENT_SEQ = #{RENT_SEQ}
+		AND USR_SEQ = #{USR_SEQ}
+		AND RENT_HIST_SEQ = 0
+	</update>
+	
+	<select id="getRecommendExistsYn" parameterType="org.fincl.miss.service.biz.bicycle.vo.RentHistVo" resultType="String">
+	<![CDATA[
+		SELECT CASE
+			   	WHEN COUNT(*) > 0
+			   	THEN 'Y'
+			   	ELSE 'N'
+			   END AS RECOMMEND_EXISTS_YN
+		FROM TB_SYS_RECOMMEND_STATION
+		WHERE 1=1
+		AND USR_SEQ = #{USR_SEQ}
+		AND RENT_SEQ = #{RENT_SEQ}
+	]]>
+	</select>
+	
+	
+	<select id="chkOurBike" parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" resultType="java.util.Map">
+	<![CDATA[
+		SELECT CASE
+               WHEN A.ENTRPS_CD = 'ENT_001'
+               THEN 'Y'
+               ELSE 'N'
+            END AS FIRMWARE_DOWN_YN,
+            B.BIKE_NO,
+            B.BIKE_ID,
+            B.REG_ID,
+            A.ENTRPS_CD
+      FROM TB_IOT_DEVICE A, TB_OPR_BIKE B
+      WHERE 1=1
+      AND A.DEVICE_ID = #{bicycleId}
+      AND A.DEVICE_MODL_CD = 'DM2'
+      AND A.DEVICE_ID = B.TERMINAL_ID
+		LIMIT 1
+	]]>
+	</select>
+<!-- 	
+<select id="chkOurBike" parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" resultType="java.util.Map">
+	<![CDATA[
+		SELECT CASE
+		       	WHEN CONVERT(REPLACE(BIKE_NO, 'SPB-', ''), SIGNED) <= 7290
+		       	THEN 'Y'
+		       	WHEN (CONVERT(REPLACE(BIKE_NO, 'SPB-', ''), SIGNED) > 7290) AND (CONVERT(REPLACE(BIKE_NO, 'SPB-', ''), SIGNED) <= 13309)
+		       	THEN 'N'
+		       	WHEN (CONVERT(REPLACE(BIKE_NO, 'SPB-', ''), SIGNED) > 13309) AND (CONVERT(REPLACE(BIKE_NO, 'SPB-', ''), SIGNED) <= 18570)
+		       	THEN 'Y'
+		       	ELSE 'N'
+		       END AS FIRMWARE_DOWN_YN,
+		       BIKE_NO,
+		       BIKE_ID
+		FROM TB_OPR_BIKE
+		WHERE 1=1
+		AND BIKE_NO LIKE 'SPB-%'
+		AND TERMINAL_ID = #{bicycleId}
+		LIMIT 1 
+	]]>
+	</select>
+
+-->
+
+<!-- 	
+	<select id="chkOurBike" parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" resultType="java.util.Map">
+	<![CDATA[
+		SELECT CASE
+			   	WHEN CONVERT(REPLACE(BIKE_NO, 'SPB-', ''), SIGNED) <= 7290
+			   	THEN 'Y'
+			   	ELSE 'N'
+			   END AS FIRMWARE_DOWN_YN,
+			   BIKE_NO,
+			   BIKE_ID,
+			   REG_ID,
+			   ENTRPS_CD
+		FROM TB_OPR_BIKE
+		WHERE 1=1
+		AND BIKE_NO LIKE 'SPB-%'
+		AND TERMINAL_ID = #{bicycleId}
+		LIMIT 1
+	]]>
+	</select>
+
+<select id="chkOurBike" parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" resultType="java.util.Map">
+	<![CDATA[
+		SELECT 
+			   BIKE_NO,
+			   BIKE_ID,
+			   REG_ID,
+			   ENTRPS_CD
+		FROM TB_OPR_BIKE
+		WHERE 1=1
+		AND BIKE_NO LIKE 'SPB-%'
+		AND TERMINAL_ID = #{bicycleId}
+		LIMIT 1
+	]]>
+	</select>
+-->
+
+	<select id="getSerialNumberInfo" parameterType="org.fincl.miss.service.biz.bicycle.vo.SerialNumberRentalRequestVo" resultType="java.util.Map">
+	<![CDATA[
+		SELECT CASE
+			   	WHEN V.VOUCHER_END_DTTM IS NULL OR V.VOUCHER_END_DTTM >= NOW()
+			   	THEN S.USR_SEQ
+			   	ELSE 'N'
+			   END AS USR_SEQ,
+			   CASE
+			   	WHEN V.VOUCHER_END_DTTM IS NULL OR V.VOUCHER_END_DTTM >= NOW()
+			   	THEN V.VOUCHER_SEQ
+			   	ELSE 'N'
+			   END AS VOUCHER_SEQ
+		FROM TB_SVC_SERIAL_NO_HIST S LEFT JOIN TB_SVC_VOUCHER V ON S.VOUCHER_SEQ = V.VOUCHER_SEQ
+		WHERE 1=1
+		AND SERIAL_NO_HIST_SEQ = (SELECT MAX(SERIAL_NO_HIST_SEQ)
+								  FROM TB_SVC_SERIAL_NO_HIST 
+								  WHERE 1=1
+								  AND SERIAL_NO = #{serialNumber})
+	]]>
+	</select>
+	
+	<select id="getUseVoucherInfo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" 		resultType="org.fincl.miss.service.biz.bicycle.vo.BikeRentInfoVo">
+	<![CDATA[
+		SELECT VOUCHER_SEQ, 
+			   USR_SEQ, 
+			   PAYMENT_CLS_CD,
+			   CASE 
+			   	WHEN PAYMENT_CLS_CD = 'BIL_006'	THEN 'RCC_002'								
+				WHEN PAYMENT_CLS_CD = 'BIL_007'	THEN 'RCC_003'
+				WHEN PAYMENT_CLS_CD IN (SELECT COM_CD FROM TB_SYS_COM_CD WHERE ADD_VAL1 = 'PREMIUM_MDAY') THEN 'RCC_005'
+				WHEN PAYMENT_CLS_CD IN (SELECT COM_CD FROM TB_SYS_COM_CD WHERE ADD_VAL1 = 'PREMIUM_SEASON') THEN 'RCC_006'
+				ELSE 'RCC_001'
+			   END RENT_CLS_CD
+		FROM TB_SVC_VOUCHER
+		WHERE 1=1
+		AND VOUCHER_SEQ = (SELECT MAX(VOUCHER_SEQ)
+						   FROM TB_SVC_VOUCHER
+						   WHERE 1=1
+						   AND USR_SEQ = #{userSeq}
+						   AND PAYMENT_CLS_CD NOT IN ('BIL_008', 'BIL_009'))
+		LIMIT 1
+	]]>
+	</select>
+	
+	<select id="getLanguageCode"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo" 		resultType="String">
+	<![CDATA[
+		SELECT CASE
+			   	WHEN M.USR_SEQ IS NOT NULL
+			   	THEN IFNULL(M.LANG_CLS_CD, 'LAG_001')
+			   	ELSE IFNULL(S.LANG_CLS_CD, 'LAG_001')
+			   END LANG_CLS_CD
+		FROM TB_SVC_RENT R LEFT JOIN TB_SVC_SERIAL_NO_HIST S ON R.USR_SEQ = S.USR_SEQ AND R.VOUCHER_SEQ = S.VOUCHER_SEQ
+			 LEFT JOIN TB_SVC_MB M ON R.USR_SEQ = M.USR_SEQ
+		WHERE 1=1
+		AND R.RENT_BIKE_ID = #{bicycleId}
+		LIMIT 1
+	]]>
+	</select>
+	
+	<select id="getBikeFirmwareVersion"      parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"       resultType="java.util.Map">
+   <![CDATA[
+      select B.FIRMWARE_VER, A.ENTRPS_CD 
+      from TB_IOT_DEVICE A, TB_IOT_FIRMWARE B 
+      WHERE A.SW_FIRMWARE_SEQ = B.FIRMWARE_SEQ AND DEVICE_ID = #{bicycleId};
+   ]]>
+   </select>
+   
+	<!-- T-APP 2MINUTE UNDER VOUCHER RESTORE  2019.12.05 -->
+	<update id="updatevoucherTAPP_2MIN_UNDER"		parameterType="String">
+		UPDATE TB_SVC_VOUCHER
+		SET
+			VOUCHER_STR_DTTM = NULL,
+			FIRST_STR_DTTM = NULL,
+			VOUCHER_END_DTTM = NULL,
+			FIRST_END_DTTM = NULL,
+			VOUCHER_USE_YN = 'N'
+		WHERE VOUCHER_SEQ = #{VOUCHER_SEQ}
+	</update>
+	
+	<!-- T-APP 2MINUTE OVER VOUCHER END_DTTM UPDATE  2019.12.05 -->
+	<update id="updatevoucherTAPP_2MIN_OVER"		parameterType="String">
+		UPDATE TB_SVC_VOUCHER
+		SET
+			VOUCHER_END_DTTM = NOW(),
+			FIRST_END_DTTM = NOW()
+		WHERE VOUCHER_SEQ = #{VOUCHER_SEQ}
+	</update>
+
+</mapper>
