@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "mybatis-3-mapper.dtd">
+<mapper namespace="org.fincl.miss.service.biz.smart.service.SmartTransferMapper">
+	
+	<select id="getTransCardList" resultType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO">
+		<![CDATA[
+ 		SELECT @num:= @num + 1 AS seq
+ 		     , A.USR_SEQ AS usrSeq
+   		     , REPLACE(dg_decrypt('TB_SVC_MB_CARD', 'MB_CARD_NO', A.MB_CARD_NO), '-', '') AS mbCardNo
+ 		     , A.STR_DTTM AS strDttm
+ 		     , A.END_DTTM AS endDttm
+ 		     , A.CARD_TYPE_CD AS cardTypeCd
+ 		     , A.CARD_USE_CLS_CD AS cardUseClsCd
+ 		     , STR_TO_DATE(NOW(),'%Y-%m-%d') - INTERVAL 4 DAY AS schDate
+ 		     , STR_TO_DATE(NOW(),'%Y-%m-%d') AS curDate
+ 		  FROM TB_SVC_MB_CARD A
+ 		     , (SELECT @num:= 0) B
+ 		 WHERE
+ 		 	 STR_DTTM <=STR_TO_DATE(NOW(),'%Y-%m-%d') - INTERVAL 4 DAY
+ 		 	AND END_DTTM >= STR_TO_DATE(NOW(),'%Y-%m-%d') - INTERVAL 4 DAY
+ 		   AND A.CARD_USE_CLS_CD = 'M'
+ 		   AND A.USR_SEQ IN (
+ 		   	SELECT USR_SEQ FROM TB_SVC_VOUCHER WHERE PAYMENT_CLS_CD = 'BIL_005'
+ 				AND VOUCHER_USE_YN = 'Y'
+ 				AND VOUCHER_STR_DTTM <= STR_TO_DATE(NOW(),'%Y-%m-%d') - INTERVAL 3 DAY
+ 				AND VOUCHER_END_DTTM >= STR_TO_DATE(NOW(),'%Y-%m-%d') - INTERVAL 4 DAY
+ 				)
+ 		]]>
+	</select>
+	
+	
+	<insert id="addTransTmoneyHistory" parameterType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO" useGeneratedKeys="true" keyProperty="transferSeq">
+		INSERT INTO TB_SVC_TRANSFER_TMONEY (
+			     RECV_SEQ
+			    ,USR_SEQ
+			    ,TRANSPORT_CD
+			    ,RIDE_DTTM
+			    ,ALIGHT_DTTM
+		) VALUES (
+				 CONVERT(#{seq}, UNSIGNED)
+				,#{usrSeq}
+				,#{transportCd}
+				,STR_TO_DATE(#{rideDttm},'%Y-%m-%d %H:%i:%S')
+				,STR_TO_DATE(#{alightDttm},'%Y-%m-%d %H:%i:%S')
+		)
+	</insert>
+	
+	<!-- 연간마일리지 15000점이상 부여 불가_20161219_JJH_START -->
+	<!-- <select id="getTransMileList" parameterType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO" resultType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO">
+		<![CDATA[
+		  SELECT USR_SEQ AS usrSeq , 
+		       MB_CARD_SEQ AS mbCardSeq , 
+		       MILEAGE_CLS_CD AS mileageClsCd , 
+		       TMS_ACC_MILEAGE AS mileagePoint , 
+		       RENT_HIST_SEQ AS rentHistSeq , 
+		       TRANSFER_SEQ AS transferSeq 
+		  FROM 
+		       (SELECT C1.* , 
+		              DAY_SUM + (TMS_ACC_MILEAGE * RANK) AS DAY_MILE_SUM , 
+		              MONTH_SUM + (TMS_ACC_MILEAGE * RANK) AS MONTH_MILE_SUM , 
+		              YEAR_SUM + (TMS_ACC_MILEAGE * RANK) AS YEAR_MILE_SUM 
+		         FROM 
+		              (SELECT USR_SEQ , 
+		                     MB_CARD_SEQ , 
+		                     MILEAGE_CLS_CD , 
+		                     TMS_ACC_MILEAGE , 
+		                     RENT_HIST_SEQ , 
+		                     TRANSFER_SEQ , 
+		                     DD_MAX_ACC_MILEAGE , 
+		                     MM_MAX_ACC_MILEAGE , 
+		                     YY_MAX_ACC_MILEAGE , 
+		                     DD_MAX_ACC_CNT , 
+		                     DAY_SUM , 
+		                     MONTH_SUM , 
+		                     YEAR_SUM , 
+		                     (CASE @vSeq WHEN USR_SEQ THEN @seqnum:=@seqnum+1 ELSE @seqnum:=1 END) RANK , 
+		                     (@vSeq:=USR_SEQ) vSeq 
+		                FROM 
+		                	(SELECT 
+		                    	X1.*,
+		                      (CASE @TRANSFER_SEQ WHEN TRANSFER_SEQ THEN @tranum:=@tranum+1 ELSE @tranum:=1 END ) trnasferSeqNum , 
+		                      (@TRANSFER_SEQ:=TRANSFER_SEQ) vTRANSFER_SEQ       
+		                     FROM
+		                         (SELECT* FROM 
+		                             (SELECT USR_SEQ , 
+		                                    MB_CARD_SEQ , 
+		                                    MILEAGE_CLS_CD , 
+		                                    TMS_ACC_MILEAGE , 
+		                                    RENT_HIST_SEQ , 
+		                                    TRANSFER_SEQ , 
+		                                    rentHistSeqNum,                             
+		                                    DD_MAX_ACC_MILEAGE , 
+		                                    MM_MAX_ACC_MILEAGE , 
+		                                    YY_MAX_ACC_MILEAGE , 
+		                                    DD_MAX_ACC_CNT , 
+		                                    DAY_SUM , 
+		                                    MONTH_SUM , 
+		                                    YEAR_SUM , 
+		                                    RENT_DTTM , 
+		                                    RETURN_DTTM , 
+		                                    RIDE_DTTM , 
+		                                    ALIGHT_DTTM  
+		                               FROM 
+		                                  (SELECT A.USR_SEQ , 
+		                                         A.MB_CARD_SEQ , 
+		                                         A.MILEAGE_CLS_CD , 
+		                                         A.TMS_ACC_MILEAGE , 
+		                                         A.RENT_HIST_SEQ , 
+		                                         (CASE @RENT_HIST_SEQ WHEN RENT_HIST_SEQ THEN @rennum:=@rennum+1 ELSE @rennum:=1 END) rentHistSeqNum , 
+		                                         (@RENT_HIST_SEQ:=RENT_HIST_SEQ) vRENT_HIST_SEQ, 
+		                                         A.TRANSFER_SEQ , 
+		                                         A.TRANSFER_RANGE_MI , 
+		                                         A.DD_MAX_ACC_MILEAGE , 
+		                                         A.MM_MAX_ACC_MILEAGE , 
+		                                         A.YY_MAX_ACC_MILEAGE , 
+		                                         A.DD_MAX_ACC_CNT , 
+		                                         A.DAY_SUM , 
+		                                         A.MONTH_SUM , 
+		                                         A.YEAR_SUM , 
+		                                         A.RENT_DTTM , 
+		                                         A.RETURN_DTTM , 
+		                                         A.RIDE_DTTM , 
+		                                         A.ALIGHT_DTTM 
+		                                    FROM 
+		                                         (SELECT RT.USR_SEQ , 
+		                                                MC.MB_CARD_SEQ , 
+		                                                'MIG_001' AS MILEAGE_CLS_CD , 
+		                                                RT.RENT_HIST_SEQ, 
+		                                                TT.TRANSFER_SEQ , 
+		                                                RT.RENT_DTTM , 
+		                                                TP.TRANSFER_RANGE_MI , 
+		                                                TP.DD_MAX_ACC_MILEAGE , 
+		                                                TP.MM_MAX_ACC_MILEAGE , 
+		                                                TP.YY_MAX_ACC_MILEAGE , 
+		                                                TP.TMS_ACC_MILEAGE , 
+		                                                TP.DD_MAX_ACC_CNT , 
+		                                                IFNULL(D.DAY_SUM, 0) AS DAY_SUM , 
+		                                                IFNULL(D.MONTH_SUM, 0) AS MONTH_SUM , 
+		                                                IFNULL(D.YEAR_SUM, 0) AS YEAR_SUM , 
+		                                                RT.RETURN_DTTM , 
+		                                                TT.RIDE_DTTM , 
+		                                                TT.ALIGHT_DTTM ,
+		                                                @vSeq=0, @seqnum:=0, @tranum:=0, @TRANSFER_SEQ:=0, @rennum:=0, @RENT_HIST_SEQ:=0
+		                                           FROM TB_SVC_RENT_HIST RT 
+		                                              LEFT OUTER JOIN 
+		                                               (  
+		                                                    SELECT T1.USR_SEQ , 
+		                                                           SUM(CASE WHEN DATE_FORMAT(RENT_DTTM, '%Y-%m-%d') = DATE_FORMAT(#{searchDttm}, '%Y-%m-%d') THEN MILEAGE_POINT ELSE 0 END) AS DAY_SUM , 
+		                                                           SUM(CASE WHEN MONTH(RENT_DTTM) = MONTH(DATE_FORMAT(#{searchDttm}, '%Y-%m-%d')) THEN MILEAGE_POINT ELSE 0 END) AS MONTH_SUM , 
+		                                                           SUM(CASE WHEN YEAR(RENT_DTTM)  = YEAR (DATE_FORMAT(#{searchDttm}, '%Y-%m-%d')) THEN MILEAGE_POINT ELSE 0 END) AS YEAR_SUM 
+		                                                      FROM TB_SVC_MILEAGE T1 INNER JOIN TB_SVC_RENT_HIST T2 ON T1.RENT_HIST_SEQ = T2.RENT_HIST_SEQ
+		                                                     WHERE MILEAGE_CLS_CD ='MIG_001' 
+		                                                       AND RENT_DTTM BETWEEN STR_TO_DATE(CONCAT(YEAR (DATE_FORMAT(#{searchDttm}, '%Y-%m-%d')), '-01-01 00:00:00'), '%Y-%m-%d %H:%i:%S') 
+		                                                                         AND STR_TO_DATE(CONCAT(YEAR (DATE_FORMAT(#{searchDttm}, '%Y-%m-%d')), '-12-31 23:59:59'), '%Y-%m-%d %H:%i:%S')  
+		                                                     GROUP BY T1.USR_SEQ 
+		                                                ) D ON RT.USR_SEQ = D.USR_SEQ , 
+		                                                TB_SVC_TRANSFER_TMONEY TT , 
+		                                                TB_SVC_TRANSFER_POLICY TP , 
+		                                                TB_SVC_MB_CARD MC 
+		                                          WHERE RT.USR_SEQ = TT.USR_SEQ 
+		                                                AND RT.RENT_DTTM BETWEEN STR_TO_DATE(CONCAT(#{searchDttm}, ' 00:00:00'), '%Y-%m-%d %H:%i:%S') AND STR_TO_DATE(CONCAT(#{searchDttm}, ' 23:59:59'), '%Y-%m-%d %H:%i:%S') 
+		                                                AND TT.RIDE_DTTM BETWEEN STR_TO_DATE(CONCAT(#{searchDttm}, ' 00:00:00'), '%Y-%m-%d %H:%i:%S') AND STR_TO_DATE(CONCAT(#{searchDttm}, ' 23:59:59'), '%Y-%m-%d %H:%i:%S') 
+		                                                AND 
+		                                                ( 
+		                                                  TT.ALIGHT_DTTM BETWEEN RT.RENT_DTTM - INTERVAL TP.TRANSFER_RANGE_MI MINUTE AND RT.RENT_DTTM 
+		                                                  OR TT.RIDE_DTTM BETWEEN RT.RETURN_DTTM AND RT.RETURN_DTTM + INTERVAL TP.TRANSFER_RANGE_MI MINUTE 
+		                                                ) 
+		                                                AND TT.ADD_YN = 'N' 
+		                                                AND STR_TO_DATE(#{searchDttm}, '%Y-%m-%d %H:%i:%S') BETWEEN TP.APPLY_STR_DATE AND TP.APPLY_END_DATE 
+		                                                AND RT.USR_SEQ = MC.USR_SEQ 
+		                                                AND STR_TO_DATE(#{searchDttm}, '%Y-%m-%d %H:%i:%S') BETWEEN MC.STR_DTTM AND MC.END_DTTM 
+		                                                AND MC.CARD_USE_CLS_CD = 'M' 
+		                                                ORDER BY RT.USR_SEQ, RT.RENT_HIST_SEQ 
+		                                         ) A 
+		                                  ) M 
+		                                WHERE rentHistSeqNum = 1 /* 대중교통 환승 마일리지 중복 방지 */       
+		                           ) AM 
+		                           ORDER BY USR_SEQ, TRANSFER_SEQ 
+		                     	) X1                           
+		                     ) X2 
+		                     WHERE trnasferSeqNum = 1 /* 대중교통 환승 마일리지 중복 방지 */                     
+		                     GROUP BY USR_SEQ , 
+		                         MB_CARD_SEQ , 
+		                         MILEAGE_CLS_CD , 
+		                         TMS_ACC_MILEAGE , 
+		                         RENT_HIST_SEQ , 
+		                         TRANSFER_SEQ,
+		                         MM_MAX_ACC_MILEAGE , 
+		                         YY_MAX_ACC_MILEAGE , 
+		                         DD_MAX_ACC_CNT , 
+		                         DAY_SUM , 
+		                         MONTH_SUM , 
+		                         YEAR_SUM 
+		              ) C1 
+		       ) D1 
+		 WHERE 1=1
+		   AND DAY_MILE_SUM <= DD_MAX_ACC_MILEAGE 
+		   AND MONTH_MILE_SUM <= MM_MAX_ACC_MILEAGE 
+		   AND YEAR_MILE_SUM <= YY_MAX_ACC_MILEAGE 
+		   AND RANK <= DD_MAX_ACC_CNT  
+		]]>
+	</select>
+	 -->
+	 
+	 <select id="getTransMileList" parameterType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO" resultType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO">
+		<![CDATA[
+		  SELECT USR_SEQ AS usrSeq , 
+		         MB_CARD_SEQ AS mbCardSeq , 
+		         MILEAGE_CLS_CD AS mileageClsCd , 
+		         TMS_ACC_MILEAGE AS mileagePoint , 
+		         RENT_HIST_SEQ AS rentHistSeq , 
+		         TRANSFER_SEQ AS transferSeq 
+		    FROM 
+		         (SELECT C1.* , 
+		                DAY_SUM + (TMS_ACC_MILEAGE * RANK) AS DAY_MILE_SUM , 
+		                MONTH_SUM + (TMS_ACC_MILEAGE * RANK) AS MONTH_MILE_SUM , 
+		                YEAR_SUM + (TMS_ACC_MILEAGE * RANK) AS YEAR_MILE_SUM 
+		           FROM 
+		                (SELECT USR_SEQ , 
+		                       MB_CARD_SEQ , 
+		                       MILEAGE_CLS_CD , 
+		                       TMS_ACC_MILEAGE , 
+		                       RENT_HIST_SEQ , 
+		                       TRANSFER_SEQ , 
+		                       DD_MAX_ACC_MILEAGE , 
+		                       MM_MAX_ACC_MILEAGE , 
+		                       YY_MAX_ACC_MILEAGE , 
+		                       DD_MAX_ACC_CNT , 
+		                       DAY_SUM , 
+		                       MONTH_SUM , 
+		                       YEAR_SUM , 
+		                       (CASE @vSeq WHEN USR_SEQ THEN @seqnum:=@seqnum+1 ELSE @seqnum:=1 END) RANK , 
+		                       (@vSeq:=USR_SEQ) vSeq 
+		                  FROM 
+		                   (SELECT 
+		                       X1.*,
+		                        (CASE @TRANSFER_SEQ WHEN TRANSFER_SEQ THEN @tranum:=@tranum+1 ELSE @tranum:=1 END ) trnasferSeqNum , 
+		                        (@TRANSFER_SEQ:=TRANSFER_SEQ) vTRANSFER_SEQ       
+		                       FROM
+		                           (SELECT* FROM 
+		                               (SELECT USR_SEQ , 
+		                                      MB_CARD_SEQ , 
+		                                      MILEAGE_CLS_CD , 
+		                                      TMS_ACC_MILEAGE , 
+		                                      RENT_HIST_SEQ , 
+		                                      TRANSFER_SEQ , 
+		                                      rentHistSeqNum,                             
+		                                      DD_MAX_ACC_MILEAGE , 
+		                                      MM_MAX_ACC_MILEAGE , 
+		                                      YY_MAX_ACC_MILEAGE , 
+		                                      DD_MAX_ACC_CNT , 
+		                                      DAY_SUM , 
+		                                      MONTH_SUM , 
+		                                      YEAR_SUM , 
+		                                      RENT_DTTM , 
+		                                      RETURN_DTTM , 
+		                                      RIDE_DTTM , 
+		                                      ALIGHT_DTTM  
+		                                 FROM 
+		                                    (SELECT A.USR_SEQ , 
+		                                           A.MB_CARD_SEQ , 
+		                                           A.MILEAGE_CLS_CD , 
+		                                           A.TMS_ACC_MILEAGE , 
+		                                           A.RENT_HIST_SEQ , 
+		                                           (CASE @RENT_HIST_SEQ WHEN RENT_HIST_SEQ THEN @rennum:=@rennum+1 ELSE @rennum:=1 END) rentHistSeqNum , 
+		                                           (@RENT_HIST_SEQ:=RENT_HIST_SEQ) vRENT_HIST_SEQ, 
+		                                           A.TRANSFER_SEQ , 
+		                                           A.TRANSFER_RANGE_MI , 
+		                                           A.DD_MAX_ACC_MILEAGE , 
+		                                           A.MM_MAX_ACC_MILEAGE , 
+		                                           A.YY_MAX_ACC_MILEAGE , 
+		                                           A.DD_MAX_ACC_CNT , 
+		                                           A.DAY_SUM , 
+		                                           A.MONTH_SUM , 
+		                                           A.YEAR_SUM , 
+		                                           A.RENT_DTTM , 
+		                                           A.RETURN_DTTM , 
+		                                           A.RIDE_DTTM , 
+		                                           A.ALIGHT_DTTM 
+		                                      FROM 
+		                                           (SELECT RT.USR_SEQ , 
+		                                                  MC.MB_CARD_SEQ , 
+		                                                  'MIG_001' AS MILEAGE_CLS_CD , 
+		                                                  RT.RENT_HIST_SEQ, 
+		                                                  TT.TRANSFER_SEQ , 
+		                                                  RT.RENT_DTTM , 
+		                                                  TP.TRANSFER_RANGE_MI , 
+		                                                  TP.DD_MAX_ACC_MILEAGE , 
+		                                                  TP.MM_MAX_ACC_MILEAGE , 
+		                                                  TP.YY_MAX_ACC_MILEAGE , 
+		                                                  TP.TMS_ACC_MILEAGE , 
+		                                                  TP.DD_MAX_ACC_CNT , 
+		                                                  IFNULL(D.DAY_SUM, 0) AS DAY_SUM , 
+		                                                  IFNULL(D.MONTH_SUM, 0) AS MONTH_SUM , 
+		                                                  IFNULL(D.YEAR_SUM, 0) AS YEAR_SUM , 
+		                                                  RT.RETURN_DTTM , 
+		                                                  TT.RIDE_DTTM , 
+		                                                  TT.ALIGHT_DTTM ,
+		                                                  @vSeq=0, @seqnum:=0, @tranum:=0, @TRANSFER_SEQ:=0, @rennum:=0, @RENT_HIST_SEQ:=0
+		                                             FROM TB_SVC_RENT_HIST RT 
+		                                                LEFT OUTER JOIN 
+		                                                 (  
+		                                                      SELECT T2.USR_SEQ,
+															                      SUM(CASE WHEN DATE_FORMAT(RENT_DTTM, '%Y-%m-%d') = DATE_FORMAT(#{searchDttm}, '%Y-%m-%d') THEN MILEAGE_POINT ELSE 0 END) AS DAY_SUM,
+															                      SUM(CASE WHEN MONTH(RENT_DTTM) = MONTH(DATE_FORMAT(#{searchDttm}, '%Y-%m-%d')) THEN MILEAGE_POINT ELSE 0 END) AS MONTH_SUM ,
+															                      IFNULL(SUM(CASE WHEN DATE_FORMAT(#{searchDttm}, '%Y-%m-%d') >= DATE_FORMAT(V.VOUCHER_STR_DTTM, '%Y-%m-%d') AND DATE_FORMAT(#{searchDttm}, '%Y-%m-%d') <= DATE_FORMAT(V.VOUCHER_END_DTTM, '%Y-%m-%d') THEN MILEAGE_POINT ELSE 0 END), 0) AS YEAR_SUM
+															                  FROM TB_SVC_RENT_HIST T2 LEFT JOIN TB_SVC_VOUCHER V ON T2.VOUCHER_SEQ = V.VOUCHER_SEQ AND V.PAYMENT_CLS_CD = 'BIL_005'
+															                       LEFT JOIN TB_SVC_MILEAGE T1 ON T1.RENT_HIST_SEQ = T2.RENT_HIST_SEQ
+															                  WHERE 1=1
+															                  AND V.VOUCHER_END_DTTM >= NOW()
+															                  GROUP BY T2.USR_SEQ
+		                                                  ) D ON RT.USR_SEQ = D.USR_SEQ , 
+		                                                  TB_SVC_TRANSFER_TMONEY TT , 
+		                                                  TB_SVC_TRANSFER_POLICY TP , 
+		                                                  TB_SVC_MB_CARD MC 
+		                                            WHERE RT.USR_SEQ = TT.USR_SEQ 
+		                                                  AND RT.RENT_DTTM BETWEEN STR_TO_DATE(CONCAT(#{searchDttm}, ' 00:00:00'), '%Y-%m-%d %H:%i:%S') AND STR_TO_DATE(CONCAT(#{searchDttm}, ' 23:59:59'), '%Y-%m-%d %H:%i:%S') 
+		                                                  AND TT.RIDE_DTTM BETWEEN STR_TO_DATE(CONCAT(#{searchDttm}, ' 00:00:00'), '%Y-%m-%d %H:%i:%S') AND STR_TO_DATE(CONCAT(#{searchDttm}, ' 23:59:59'), '%Y-%m-%d %H:%i:%S') 
+		                                                  AND 
+		                                                  ( 
+		                                                    TT.ALIGHT_DTTM BETWEEN RT.RENT_DTTM - INTERVAL TP.TRANSFER_RANGE_MI MINUTE AND RT.RENT_DTTM 
+		                                                    OR TT.RIDE_DTTM BETWEEN RT.RETURN_DTTM AND RT.RETURN_DTTM + INTERVAL TP.TRANSFER_RANGE_MI MINUTE 
+		                                                  ) 
+		                                                  AND TT.ADD_YN = 'N' 
+		                                                  AND STR_TO_DATE(#{searchDttm}, '%Y-%m-%d %H:%i:%S') BETWEEN TP.APPLY_STR_DATE AND TP.APPLY_END_DATE 
+		                                                  AND RT.USR_SEQ = MC.USR_SEQ 
+		                                                  AND STR_TO_DATE(#{searchDttm}, '%Y-%m-%d %H:%i:%S') BETWEEN MC.STR_DTTM AND MC.END_DTTM 
+		                                                  AND MC.CARD_USE_CLS_CD = 'M' 
+		                                                  ORDER BY RT.USR_SEQ, RT.RENT_HIST_SEQ 
+		                                           ) A 
+		                                    ) M 
+		                                  WHERE rentHistSeqNum = 1 /* 대중교통 환승 마일리지 중복 방지 */       
+		                             ) AM 
+		                             ORDER BY USR_SEQ, TRANSFER_SEQ 
+		                        ) X1                           
+		                       ) X2 
+		                       WHERE trnasferSeqNum = 1 /* 대중교통 환승 마일리지 중복 방지 */                     
+		                       GROUP BY USR_SEQ , 
+		                           MB_CARD_SEQ , 
+		                           MILEAGE_CLS_CD , 
+		                           TMS_ACC_MILEAGE , 
+		                           RENT_HIST_SEQ , 
+		                           TRANSFER_SEQ,
+		                           MM_MAX_ACC_MILEAGE , 
+		                           YY_MAX_ACC_MILEAGE , 
+		                           DD_MAX_ACC_CNT , 
+		                           DAY_SUM , 
+		                           MONTH_SUM , 
+		                           YEAR_SUM 
+		                ) C1 
+		         ) D1 
+		   WHERE 1=1
+		     AND DAY_MILE_SUM <= DD_MAX_ACC_MILEAGE 
+		     AND MONTH_MILE_SUM <= MM_MAX_ACC_MILEAGE 
+		     AND YEAR_MILE_SUM <= YY_MAX_ACC_MILEAGE 
+		     AND RANK <= DD_MAX_ACC_CNT  
+		]]>
+	</select>
+	
+	<!-- 연간마일리지 15000점이상 부여 불가_20161219_JJH_END -->
+	 
+	<insert id="addTransMileage" parameterType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO" useGeneratedKeys="true" keyProperty="mileageSeq">
+		INSERT INTO TB_SVC_MILEAGE (
+			     USR_SEQ
+			    ,MB_CARD_SEQ
+			    ,MILEAGE_CLS_CD
+			    ,MILEAGE_POINT
+			    ,RENT_HIST_SEQ
+		) VALUES (
+				 #{usrSeq}
+				,#{mbCardSeq}
+				,#{mileageClsCd}
+				,#{mileagePoint}
+				,#{rentHistSeq}
+		)
+	</insert>
+	
+	<update id="setTransTmoney" parameterType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO">
+		UPDATE TB_SVC_TRANSFER_TMONEY
+		SET ADD_YN = 'Y'
+		WHERE TRANSFER_SEQ = #{transferSeq}
+	</update>
+	
+	<update id="setFinishTmoney" parameterType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO">
+		UPDATE TB_SYS_SERVER_CPU
+		SET SMART_YN = 'Y',
+			SMART_REGDATE = now(),
+			searchDttm = #{searchDttm}
+		WHERE HOSTNAME = 'SMART'
+	</update>
+	
+	<select id="getMileageCount" parameterType="org.fincl.miss.service.biz.smart.vo.SmartTransferVO" resultType="int">
+      <![CDATA[
+       SELECT count(*) FROM TB_SVC_MILEAGE 
+         WHERE USR_SEQ = #{usrSeq} 
+         AND RENT_HIST_SEQ = #{rentHistSeq} 
+         AND DATE(REG_DTTM) = DATE(now()); 
+       ]]>
+   </select>
+</mapper>

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "mybatis-3-mapper.dtd">
+<mapper namespace="org.fincl.miss.service.biz.bicycle.service.FileUpdateMapper">
+
+	
+	
+	<select id="getFileInfo"		parameterType="string"	resultType="java.util.HashMap">
+	
+		SELECT *
+		FROM TB_IOT_FIRMWART_FILE
+		WHERE FIRMWARE_SEQ = #{fileSeq}
+	
+	
+	</select>
+	
+	<select id="getFileWithFileNo"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"	resultType="java.util.HashMap">
+	
+		SELECT *
+		FROM TB_IOT_FIRMWART_FILE
+		WHERE FIRMWARE_SEQ = #{firmwareSeq}
+		AND FIRMWARE_FILE_NO = #{firmwareFileNo}
+	
+	</select>
+	
+	<select id="getHasNext"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"	resultType="java.util.HashMap">
+	
+		SELECT case count(*) when 0 then 0 else 1 end as 'HAS_NEXT' 
+		FROM TB_IOT_FIRMWART_FILE
+		WHERE FIRMWARE_SEQ = #{firmwareSeq}
+		AND FIRMWARE_FILE_NO  &gt; #{firmwareFileNo}
+	
+	</select>
+	
+	<!-- 회사 별 펌웨어 버전체크로 인한 주석처리_20170530_JJH
+	<select id="getVersion"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"	resultType="java.util.HashMap">
+	<![CDATA[
+		SELECT 
+			A.FIRMWARE_CLS_CD, 
+			A.FIRMWARE_VER, 
+			A.FIRMWARE_SEQ,
+			A.USE_YN,
+			(CASE WHEN
+				NOW() >= STR_TO_DATE(concat(DATE_FORMAT(NOW(),'%Y-%m-%d'),' ',A.UPDATE_CAN_STR_TIME),'%Y-%m-%d %H:%i') 
+			THEN
+				(CASE WHEN STR_TO_DATE(A.UPDATE_CAN_STR_TIME,'%H:%i') <= STR_TO_DATE(A.UPDATE_CAN_END_TIME,'%H:%i') 
+				 THEN
+				 	(CASE WHEN NOW() > STR_TO_DATE(concat(DATE_FORMAT(NOW(),'%Y-%m-%d'),' ',A.UPDATE_CAN_END_TIME),'%Y-%m-%d %H:%i') THEN 'N' ELSE 'Y' END) 
+				 ELSE 'Y' END)
+			ELSE
+				(CASE WHEN STR_TO_DATE(A.UPDATE_CAN_STR_TIME,'%H:%i') > STR_TO_DATE(A.UPDATE_CAN_END_TIME,'%H:%i') 
+				 THEN
+				 	(CASE WHEN NOW() <= STR_TO_DATE(concat(DATE_FORMAT(NOW(),'%Y-%m-%d'),' ',A.UPDATE_CAN_END_TIME),'%Y-%m-%d %H:%i') THEN 'Y' ELSE 'N' END) 
+				 ELSE 'N' END)
+			END) AS CAN_DOWN
+		FROM TB_IOT_FIRMWARE A,
+		(
+			SELECT FIRMWARE_CLS_CD, MAX(FIRMWARE_VER) FIRMWARE_VER
+			FROM TB_IOT_FIRMWARE
+			GROUP BY FIRMWARE_CLS_CD
+		) B
+		WHERE A.FIRMWARE_CLS_CD = B.FIRMWARE_CLS_CD
+		AND A.FIRMWARE_VER = B.FIRMWARE_VER
+		AND B.FIRMWARE_CLS_CD = #{firmwareClsCd}
+  	]]> 
+	</select>
+	 -->
+	 
+	<!-- 회사 별 펌웨어 버전체크_20170530_JJH_START -->
+	<select id="getVersion"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"	resultType="java.util.HashMap">
+	<![CDATA[
+		SELECT  F.FIRMWARE_CLS_CD, 
+				F.FIRMWARE_VER, 
+				F.FIRMWARE_SEQ,
+				F.USE_YN,
+				(CASE WHEN
+					NOW() >= STR_TO_DATE(concat(DATE_FORMAT(NOW(),'%Y-%m-%d'),' ', F.UPDATE_CAN_STR_TIME),'%Y-%m-%d %H:%i') 
+				THEN
+					(CASE WHEN STR_TO_DATE(F.UPDATE_CAN_STR_TIME,'%H:%i') <= STR_TO_DATE(F.UPDATE_CAN_END_TIME,'%H:%i') 
+					 THEN
+					 	(CASE WHEN NOW() > STR_TO_DATE(concat(DATE_FORMAT(NOW(),'%Y-%m-%d'),' ',F.UPDATE_CAN_END_TIME),'%Y-%m-%d %H:%i') THEN 'N' ELSE 'Y' END) 
+					 ELSE 'Y' END)
+				ELSE
+					(CASE WHEN STR_TO_DATE(F.UPDATE_CAN_STR_TIME,'%H:%i') > STR_TO_DATE(F.UPDATE_CAN_END_TIME,'%H:%i') 
+					 THEN
+					 	(CASE WHEN NOW() <= STR_TO_DATE(concat(DATE_FORMAT(NOW(),'%Y-%m-%d'),' ',F.UPDATE_CAN_END_TIME),'%Y-%m-%d %H:%i') THEN 'Y' ELSE 'N' END) 
+					 ELSE 'N' END)
+				END) AS TIME_CAN_DOWN,
+				(CASE WHEN
+					F.ALL_UPDATE_YN = 'Y' OR F.ALL_UPDATE_YN IS NULL
+				THEN
+					'Y'
+				ELSE
+				(CASE 
+					WHEN (SELECT SUBSTRING_INDEX(BIKE_NO,'-',-1) FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{bicycleId}) >= SUBSTRING_INDEX(F.UPDATE_BEGIN_SERIAL_NO,'-',-1) 
+					AND (SELECT SUBSTRING_INDEX(BIKE_NO,'-',-1) FROM TB_OPR_BIKE WHERE TERMINAL_ID = #{bicycleId}) <= SUBSTRING_INDEX(UPDATE_END_SERIAL_NO,'-',-1) 
+				THEN 'Y' ELSE 'N' END) END ) AS BIKE_CAN_DOWN
+		FROM TB_IOT_FIRMWARE F LEFT JOIN TB_IOT_FIRMWART_FILE FF ON F.FIRMWARE_SEQ = FF.FIRMWARE_SEQ
+		WHERE 1=1
+		AND FF.COMPANY_CD = #{company_cd}
+		AND F.FIRMWARE_CLS_CD = #{firmwareClsCd}
+		AND F.FIRMWARE_VER = (SELECT MAX(F.FIRMWARE_VER)
+										FROM TB_IOT_FIRMWARE F LEFT JOIN TB_IOT_FIRMWART_FILE FF ON F.FIRMWARE_SEQ = FF.FIRMWARE_SEQ
+										WHERE 1=1
+										AND FF.COMPANY_CD = #{company_cd}
+										AND FIRMWARE_CLS_CD = #{firmwareClsCd}
+										AND F.USE_YN = 'Y' AND DEVICE_MODL_CD = 'DM4')
+		ORDER BY F.REG_DTTM DESC
+		LIMIT 1
+  	]]> 
+	</select>
+	<!-- 회사 별 펌웨어 버전체크_20170530_JJH_END -->
+	
+	
+	<insert id="insertFirmareUpdateResult"	parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+	
+		INSERT INTO TB_IOT_FIRMWARE_UPDATE_RESULT
+		(
+			FIRMWARE_SEQ, DEVICE_ID, SUCCES_YN, REQ_DTTM
+		)
+		VALUES
+		(
+			#{firmwareSeq}, #{bicycleId}, 'N', SYSDATE()
+		)
+	
+	</insert>
+	
+	<select id="getFirmwareStarted"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo"	resultType="int">
+	
+		SELECT count(*) as 'IS_STARTED' 
+		FROM TB_IOT_FIRMWARE_UPDATE_RESULT
+		WHERE FIRMWARE_SEQ = #{firmwareSeq}
+		AND DEVICE_ID = #{bicycleId}
+	
+	</select>
+	
+	<update id="updateFirmareUpdateResult"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+	
+	
+		UPDATE TB_IOT_FIRMWARE_UPDATE_RESULT
+		SET
+			SUCCES_YN = 'Y',
+			PROCESS_DTTM = SYSDATE()
+		WHERE FIRMWARE_SEQ = #{firmwareSeq}
+		AND	 DEVICE_ID = #{bicycleId}
+		
+	</update>
+
+	<update id="updateDeviceFirmware"		parameterType="org.fincl.miss.service.biz.bicycle.common.CommonVo">
+	
+		UPDATE TB_IOT_DEVICE
+		SET
+			SW_FIRMWARE_SEQ = #{firmwareSeq},
+			LAST_CONN_DTTM = SYSDATE()
+		WHERE DEVICE_ID = #{bicycleId}
+	
+	</update>
+
+</mapper>
